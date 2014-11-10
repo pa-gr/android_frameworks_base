@@ -17,6 +17,7 @@
 package com.android.systemui.shade;
 
 import static android.app.StatusBarManager.WINDOW_STATE_SHOWING;
+import static android.provider.Settings.Secure.STATUS_BAR_QUICK_QS_PULLDOWN;
 import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
@@ -237,6 +238,7 @@ import com.android.systemui.statusbar.policy.KeyguardUserSwitcherView;
 import com.android.systemui.statusbar.policy.OnHeadsUpChangedListener;
 import com.android.systemui.statusbar.policy.SplitShadeStateController;
 import com.android.systemui.statusbar.window.StatusBarWindowStateController;
+import com.android.systemui.tuner.TunerService;
 import com.android.systemui.unfold.SysUIUnfoldComponent;
 import com.android.systemui.util.Compile;
 import com.android.systemui.util.Utils;
@@ -367,6 +369,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
     private final QuickSettingsControllerImpl mQsController;
     private final NaturalScrollingSettingObserver mNaturalScrollingSettingObserver;
     private final TouchHandler mTouchHandler = new TouchHandler();
+    private final TunerService mTunerService;
 
     private long mDownTime;
     private boolean mTouchSlopExceededBeforeDown;
@@ -782,6 +785,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
             DumpManager dumpManager,
             KeyguardLongPressViewModel keyguardLongPressViewModel,
             KeyguardInteractor keyguardInteractor,
+            TunerService tunerService,
             ActivityStarter activityStarter,
             SharedNotificationContainerInteractor sharedNotificationContainerInteractor,
             ActiveNotificationsInteractor activeNotificationsInteractor,
@@ -896,6 +900,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
         mEmergencyButtonControllerFactory = emergencyButtonControllerFactory;
         mFragmentService = fragmentService;
         mStatusBarService = statusBarService;
+        mTunerService = tunerService;
         mSettingsChangeObserver = new SettingsChangeObserver(handler);
         mSplitShadeStateController = splitShadeStateController;
         mSplitShadeEnabled =
@@ -4703,7 +4708,8 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
         positionClockAndNotifications(true /* forceUpdate */);
     }
 
-    private final class ShadeAttachStateChangeListener implements View.OnAttachStateChangeListener {
+    private final class ShadeAttachStateChangeListener implements View.OnAttachStateChangeListener,
+            TunerService.Tunable {
         @Override
         public void onViewAttachedToWindow(View v) {
             mFragmentService.getFragmentHostManager(mView)
@@ -4713,6 +4719,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
                 mStatusBarStateListener.onStateChanged(mStatusBarStateController.getState());
             }
             mConfigurationController.addCallback(mConfigurationListener);
+            mTunerService.addTunable(this, STATUS_BAR_QUICK_QS_PULLDOWN);
             // Theme might have changed between inflating this view and attaching it to the
             // window, so
             // force a call to onThemeChanged
@@ -4729,7 +4736,16 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
                     .removeTagListener(QS.TAG, mQsController.getQsFragmentListener());
             mStatusBarStateController.removeCallback(mStatusBarStateListener);
             mConfigurationController.removeCallback(mConfigurationListener);
+            mTunerService.removeTunable(this);
             mFalsingManager.removeTapListener(mFalsingTapListener);
+        }
+
+        @Override
+        public void onTuningChanged(String key, String newValue) {
+            if (STATUS_BAR_QUICK_QS_PULLDOWN.equals(key)) {
+                mQsController.setOneFingerQsIntercept(
+                        TunerService.parseIntegerSwitch(newValue, false));
+            }
         }
     }
 

@@ -241,6 +241,9 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
      */
     private boolean mAnimatorExpand;
 
+    // Quick pull down
+    private boolean mOneFingerQsIntercept;
+
     /**
      * The gesture inset currently in effect -- used to decide whether a back gesture should
      * receive a horizontal swipe inwards from the left/right vertical edge of the screen.
@@ -583,7 +586,18 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                         MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(
                         MotionEvent.BUTTON_TERTIARY));
 
-        return twoFingerDrag || stylusButtonClickDrag || mouseButtonClickDrag;
+        final float w = mQs.getView().getMeasuredWidth();
+        final float x = event.getX();
+        final float region = w * 0.25f; // TODO overlay region fraction?
+        boolean showQsOverride = false;
+
+        if (mOneFingerQsIntercept) {
+            showQsOverride = mQs.getView().isLayoutRtl() ? x < region : w - region < x;
+        }
+
+        showQsOverride &= mBarState == StatusBarState.SHADE;
+
+        return showQsOverride || twoFingerDrag || stylusButtonClickDrag || mouseButtonClickDrag;
     }
 
     @Override
@@ -955,6 +969,10 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     @VisibleForTesting
     boolean isTwoFingerExpandPossible() {
         return mTwoFingerExpandPossible;
+    }
+
+    void setOneFingerQsIntercept(boolean enable) {
+        mOneFingerQsIntercept = enable;
     }
 
     /** Called when Qs starts expanding */
