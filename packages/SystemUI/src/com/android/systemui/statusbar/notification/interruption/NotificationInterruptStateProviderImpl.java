@@ -27,11 +27,16 @@ import static com.android.systemui.statusbar.notification.interruption.Notificat
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.content.Context;
 import android.database.ContentObserver;
 import android.hardware.display.AmbientDisplayConfiguration;
 import android.os.Handler;
 import android.os.PowerManager;
+import android.os.UserHandle;
+import android.provider.Settings;
+import android.provider.Telephony.Sms;
 import android.service.notification.StatusBarNotification;
+import android.telecom.TelecomManager;
 
 import androidx.annotation.NonNull;
 
@@ -51,6 +56,7 @@ import com.android.systemui.statusbar.policy.HeadsUpManager;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.util.EventLog;
 import com.android.systemui.util.settings.GlobalSettings;
+import com.android.systemui.util.settings.SystemSettings;
 import com.android.systemui.util.time.SystemClock;
 import com.android.wm.shell.bubbles.Bubbles;
 
@@ -90,6 +96,11 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
     @VisibleForTesting
     protected boolean mUseHeadsUp = false;
 
+    private boolean mLessBoringHeadsUp = false;
+    private final SystemSettings mSystemSettings;
+    private final TelecomManager mTelecomManager;
+    private final Context mContext;
+
     public enum NotificationInterruptEvent implements UiEventLogger.UiEventEnum {
         @UiEvent(doc = "FSI suppressed for suppressive GroupAlertBehavior")
         FSI_SUPPRESSED_SUPPRESSIVE_GROUP_ALERT_BEHAVIOR(1235),
@@ -120,6 +131,7 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
 
     @Inject
     public NotificationInterruptStateProviderImpl(
+            Context context,
             PowerManager powerManager,
             AmbientDisplayConfiguration ambientDisplayConfiguration,
             BatteryController batteryController,
@@ -135,8 +147,10 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
             DeviceProvisionedController deviceProvisionedController,
             SystemClock systemClock,
             GlobalSettings globalSettings,
+            SystemSettings systemSettings,
             EventLog eventLog,
             Optional<Bubbles> bubbles) {
+        mContext = context;
         mPowerManager = powerManager;
         mBatteryController = batteryController;
         mAmbientDisplayConfiguration = ambientDisplayConfiguration;
@@ -150,9 +164,11 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
         mUserTracker = userTracker;
         mDeviceProvisionedController = deviceProvisionedController;
         mSystemClock = systemClock;
+        mSystemSettings = systemSettings;
         mGlobalSettings = globalSettings;
         mEventLog = eventLog;
         mBubbles = bubbles;
+        mTelecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
         ContentObserver headsUpObserver = new ContentObserver(mainHandler) {
             @Override
             public void onChange(boolean selfChange) {
@@ -167,6 +183,9 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
                         mHeadsUpManager.releaseAllImmediately();
                     }
                 }
+                mLessBoringHeadsUp = mSystemSettings.getIntForUser(
+                        Settings.System.LESS_BORING_HEADS_UP, 0,
+                        UserHandle.USER_CURRENT) == 1;
             }
         };
 
@@ -178,6 +197,11 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
             mGlobalSettings.registerContentObserverSync(
                     mGlobalSettings.getUriFor(SETTING_HEADS_UP_TICKER), true,
                     headsUpObserver);
+            mSystemSettings.registerContentObserverForUserSync(
+                    Settings.System.LESS_BORING_HEADS_UP,
+                    true,
+                    headsUpObserver,
+                    UserHandle.USER_CURRENT);
         }
         headsUpObserver.onChange(true); // set up
     }
@@ -434,6 +458,11 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
             return false;
         }
 
+        if (mLessBoringHeadsUp && isBoringHeadsUp(entry)) {
+            if (log) mLogger.logNoHeadsUpBoringNotification(entry);
+            return false;
+        }
+
         final boolean isSnoozedPackage = isSnoozedPackage(sbn);
         final boolean hasFsi = sbn.getNotification().fullScreenIntent != null;
 
@@ -541,6 +570,23 @@ public class NotificationInterruptStateProviderImpl implements NotificationInter
         }
         if (log) mLogger.logPulsing(entry);
         return true;
+    }
+
+    private boolean isBoringHeadsUp(NotificationEntry entry) {
+        final String packageName = entry.getSbn().getPackageName();
+        final String category = entry.getSbn().getNotification().category;
+
+        final boolean isCategoryAllowed = (category != null) && List.of(
+            Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM,
+            Notification.CATEGORY_REMINDER, Notification.CATEGORY_NAVIGATION
+        ).contains(category);
+
+        final boolean isLessBoring = isCategoryAllowed
+                || entry.getChannel().isImportantConversation()
+                || packageName.equals(mTelecomManager.getDefaultDialerPackage())
+                || packageName.equals(Sms.getDefaultSmsPackage(mContext));
+
+        return !isLessBoring;
     }
 
     /**
