@@ -15,6 +15,7 @@
 
     <!-- Color of the UDFPS pressed view -->
     <color name="config_udfpsColor">#ffffffff</color>
+
     <!-- Whether usage of the proximity sensor during doze is supported -->
     <bool name="doze_proximity_sensor_supported">true</bool>
 
@@ -30,5 +31,10 @@
     <!-- Whether to briefly keep the display in ON state when transitioning from
          DOZE_AOD_PAUSED to DOZE_AOD state. -->
     <bool name="config_displayTurnsOnWhenResumingAod">false</bool>
+
+    <!-- Whether to enable burn-in protection for statusbar and navbar -->
+    <bool name="config_statusBarBurnInProtection">@*android:bool/config_enableBurnInProtection</bool>
+    <!-- Interval between subsequent shifting of statusbar and navbar contents, in seconds -->
+    <integer name="config_statusBarBurnInProtectionShiftInterval">60</integer>
 
 </resources>
