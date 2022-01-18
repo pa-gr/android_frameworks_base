@@ -2688,6 +2688,18 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             params.layoutInDisplayCutoutMode = mode;
         }
 
+        if (ActivityManager.isSystemReady()) {
+            try {
+                String packageName = context.getBasePackageName();
+                if (ActivityManager.getService().shouldForceCutoutFullscreen(packageName)) {
+                    Log.i(TAG, "forcing fullscreen for " + packageName);
+                    params.layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "check shouldForceCutoutFullscreen error: " + e);
+            }
+        }
+
         if (mAlwaysReadCloseOnTouchAttr || getContext().getApplicationInfo().targetSdkVersion
                 >= android.os.Build.VERSION_CODES.HONEYCOMB) {
             if (a.getBoolean(

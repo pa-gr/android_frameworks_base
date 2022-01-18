@@ -21345,4 +21345,8 @@ public class ActivityManagerService extends IActivityManager.Stub
     void clearPendingTopAppLocked() {
         mPendingStartActivityUids.clear();
     }
+
+    public boolean shouldForceCutoutFullscreen(String packageName) {
+        return mActivityTaskManager.shouldForceCutoutFullscreen(packageName);
+    }
 }
