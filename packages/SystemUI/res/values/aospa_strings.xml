@@ -47,4 +47,10 @@
     <string name="usb_use_MIDI">MIDI</string>
     <string name="usb_use">Use USB for</string>
 
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d device connected</item>
+        <item quantity="other">%d devices connected</item>
+    </plurals>
+
 </resources>

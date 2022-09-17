@@ -28,14 +28,18 @@ import static android.telephony.ims.stub.ImsRegistrationImplBase.REGISTRATION_TE
 import static com.android.settingslib.satellite.SatelliteDialogUtils.TYPE_IS_WIFI;
 import static com.android.systemui.Prefs.Key.QS_HAS_TURNED_OFF_MOBILE_DATA;
 import static com.android.systemui.qs.tiles.dialog.InternetDialogController.MAX_WIFI_ENTRY_COUNT;
+import static com.android.systemui.util.PluralMessageFormaterKt.icuMessageFormat;
 
 import static com.qti.extphone.ExtPhoneCallbackListener.EVENT_ON_CIWLAN_CONFIG_CHANGE;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
@@ -58,6 +62,7 @@ import android.util.SparseBooleanArray;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.Window;
 import android.view.WindowManager;
@@ -78,6 +83,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.android.internal.logging.UiEvent;
 import com.android.internal.logging.UiEventLogger;
 import com.android.internal.telephony.flags.Flags;
+import com.android.settingslib.Utils;
 import com.android.settingslib.satellite.SatelliteDialogUtils;
 import com.android.settingslib.wifi.WifiEnterpriseRestrictionUtils;
 import com.android.systemui.Prefs;
@@ -150,6 +156,7 @@ public class InternetDialogDelegate implements
     private LinearLayout mSecondaryMobileNetworkLayout;
     private LinearLayout mTurnWifiOnLayout;
     private LinearLayout mEthernetLayout;
+    private LinearLayout mHotspotLayout;
     private TextView mWifiToggleTitleText;
     private LinearLayout mWifiScanNotifyLayout;
     private TextView mWifiScanNotifyText;
@@ -166,7 +173,13 @@ public class InternetDialogDelegate implements
     private Switch mMobileDataToggle;
     private Switch mSecondaryMobileDataToggle;
     private View mMobileToggleDivider;
+    private View mMobileConnectedSpace;
+    private ImageView mHotspotIcon;
+    private TextView mHotspotTitleText;
+    private TextView mHotspotSummaryText;
+    private Switch mHotspotToggle;
     private Switch mWiFiToggle;
+    private View mWifiConnectedSpace;
     private Button mDoneButton;
 
     @VisibleForTesting
@@ -341,6 +354,7 @@ public class InternetDialogDelegate implements
         mProgressBar = mDialogView.requireViewById(R.id.wifi_searching_progress);
         mEthernetLayout = mDialogView.requireViewById(R.id.ethernet_layout);
         mMobileNetworkLayout = mDialogView.requireViewById(R.id.mobile_network_layout);
+        mHotspotLayout = mDialogView.requireViewById(R.id.hotspot_layout);
         mTurnWifiOnLayout = mDialogView.requireViewById(R.id.turn_on_wifi_layout);
         mWifiToggleTitleText = mDialogView.requireViewById(R.id.wifi_toggle_title);
         mWifiScanNotifyLayout = mDialogView.requireViewById(R.id.wifi_scan_notify_layout);
@@ -361,13 +375,20 @@ public class InternetDialogDelegate implements
         mAirplaneModeSummaryText = mDialogView.requireViewById(R.id.airplane_mode_summary);
         mMobileToggleDivider = mDialogView.requireViewById(R.id.mobile_toggle_divider);
         mMobileDataToggle = mDialogView.requireViewById(R.id.mobile_toggle);
+        mMobileConnectedSpace = mDialogView.requireViewById(R.id.mobile_connected_space);
+        mHotspotIcon = mDialogView.requireViewById(R.id.hotspot_icon);
+        mHotspotTitleText = mDialogView.requireViewById(R.id.hotspot_title);
+        mHotspotSummaryText = mDialogView.requireViewById(R.id.hotspot_summary);
+        mHotspotToggle = mDialogView.requireViewById(R.id.hotspot_toggle);
         mWiFiToggle = mDialogView.requireViewById(R.id.wifi_toggle);
+        mWifiConnectedSpace = mDialogView.requireViewById(R.id.wifi_connected_space);
         mBackgroundOn = context.getDrawable(R.drawable.settingslib_switch_bar_bg_on);
         mInternetDialogTitle.setText(getDialogTitleText());
         mInternetDialogTitle.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         mBackgroundOff = context.getDrawable(R.drawable.internet_dialog_selected_effect);
         mSecondaryBackgroundOn = mBackgroundOn.getConstantState().newDrawable().mutate();
         setOnClickListener(dialog);
+        setHotspotLayout();
         mTurnWifiOnLayout.setBackground(null);
         mAirplaneModeButton.setVisibility(
                 mInternetDialogController.isAirplaneModeEnabled() ? View.VISIBLE : View.GONE);
@@ -408,6 +429,8 @@ public class InternetDialogDelegate implements
             mExtTelephonyManager.disconnectService(mExtTelServiceCallback);
         }
         mMobileNetworkLayout.setOnClickListener(null);
+        mHotspotLayout.setOnClickListener(null);
+        mHotspotToggle.setOnCheckedChangeListener(null);
         mConnectedWifListLayout.setOnClickListener(null);
         if (mSecondaryMobileNetworkLayout != null) {
             mSecondaryMobileNetworkLayout.setOnClickListener(null);
@@ -442,7 +465,7 @@ public class InternetDialogDelegate implements
      * @param shouldUpdateMobileNetwork {@code true} for update the mobile network layout,
      *                                  otherwise {@code false}.
      */
-    void updateDialog(boolean shouldUpdateMobileNetwork) {
+    void updateDialog(boolean shouldUpdateMobileNetwork, boolean shouldUpdateHotspot) {
         if (DEBUG) {
             Log.d(TAG, "updateDialog");
         }
@@ -457,6 +480,10 @@ public class InternetDialogDelegate implements
                     mInternetDialogController.isCarrierNetworkActive());
         }
 
+        if (shouldUpdateHotspot) {
+            setHotspotLayout();
+        }
+
         if (!mCanConfigWifi) {
             return;
         }
@@ -468,6 +495,10 @@ public class InternetDialogDelegate implements
         updateConnectedWifi(isWifiEnabled, isDeviceLocked);
         updateWifiListAndSeeAll(isWifiEnabled, isDeviceLocked);
         updateWifiScanNotify(isWifiEnabled, isWifiScanEnabled, isDeviceLocked);
+    }
+
+    void updateDialog(boolean shouldUpdateMobileNetwork) {
+        updateDialog(shouldUpdateMobileNetwork, false /* shouldUpdateHotspot */);
     }
 
     private void setOnClickListener(SystemUIDialog dialog) {
@@ -491,6 +522,9 @@ public class InternetDialogDelegate implements
                         dialog.getContext(), mDefaultDataSubId, isChecked, false);
             }
         });
+        mHotspotLayout.setOnClickListener(mInternetDialogController::launchHotspotSetting);
+        mHotspotToggle.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> mInternetDialogController.setHotspotEnabled(isChecked));
         mConnectedWifListLayout.setOnClickListener(this::onClickConnectedWifi);
         mSeeAllLayout.setOnClickListener(this::onClickSeeMoreButton);
         mWiFiToggle.setOnClickListener(v -> {
@@ -602,6 +636,8 @@ public class InternetDialogDelegate implements
                     mSignalIcon.setImageDrawable(drawable);
                 });
             });
+            mMobileConnectedSpace.setVisibility(
+                    isNetworkConnected ? View.VISIBLE : View.GONE);
 
             mMobileDataToggle.setVisibility(mCanConfigMobileData ? View.VISIBLE : View.INVISIBLE);
             mMobileToggleDivider.setVisibility(
@@ -760,6 +796,29 @@ public class InternetDialogDelegate implements
         }
     }
 
+    private void setHotspotLayout() {
+        if (!mInternetDialogController.isHotspotAvailable()) {
+            mHotspotLayout.setVisibility(View.GONE);
+            return;
+        }
+        mHotspotLayout.setVisibility(View.VISIBLE);
+        mHotspotTitleText.setText(getHotspotTitle());
+        mHotspotSummaryText.setText(getHotspotSummary());
+
+        boolean enabled = mInternetDialogController.isHotspotEnabled();
+        int tintColor = Utils.getColorAttrDefaultColor(mDialog.getContext(),
+                enabled ? android.R.attr.textColorSecondary : android.R.attr.textColorTertiary);
+        mHotspotIcon.setImageResource(enabled ? R.drawable.ic_internet_hotspot
+                : R.drawable.ic_internet_hotspot_disabled);
+        mHotspotIcon.setImageTintList(ColorStateList.valueOf(tintColor));
+        mHotspotToggle.setChecked(enabled);
+
+        boolean dataSaver = mInternetDialogController.isDataSaverEnabled();
+        mHotspotTitleText.setEnabled(!dataSaver);
+        mHotspotSummaryText.setEnabled(!dataSaver);
+        mHotspotToggle.setEnabled(!dataSaver);
+    }
+
     @MainThread
     private void updateWifiToggle(boolean isWifiEnabled, boolean isDeviceLocked) {
         if (mWiFiToggle.isChecked() != isWifiEnabled) {
@@ -770,8 +829,15 @@ public class InternetDialogDelegate implements
                     ? R.style.TextAppearance_InternetDialog_Active
                     : R.style.TextAppearance_InternetDialog);
         }
-        mTurnWifiOnLayout.setBackground(
-                (isDeviceLocked && mConnectedWifiEntry != null) ? mBackgroundOn : null);
+
+        boolean showBackground = isDeviceLocked && mConnectedWifiEntry != null;
+        ViewGroup.LayoutParams lp = mTurnWifiOnLayout.getLayoutParams();
+        lp.height = mDialog.getContext().getResources().getDimensionPixelSize(
+                showBackground ? R.dimen.internet_dialog_wifi_network_height
+                : R.dimen.internet_dialog_wifi_toggle_height);
+        mTurnWifiOnLayout.setLayoutParams(lp);
+        mTurnWifiOnLayout.setBackground(showBackground ? mBackgroundOn : null);
+        mWifiConnectedSpace.setVisibility(showBackground ? View.VISIBLE : View.GONE);
 
         if (!mCanChangeWifiState && mWiFiToggle.isEnabled()) {
             mWiFiToggle.setEnabled(false);
@@ -907,6 +973,36 @@ public class InternetDialogDelegate implements
             return mDialog.getContext().getString(R.string.mobile_data_summary_not_allowed_to_disable_data);
         }
         return mInternetDialogController.getMobileNetworkSummary(subId);
+    }
+
+    private CharSequence getHotspotTitle() {
+        final WifiManager wifiManager = mInternetDialogController.getWifiManager();
+        if (wifiManager != null) {
+            final SoftApConfiguration softApConfig = wifiManager.getSoftApConfiguration();
+            if (softApConfig != null) {
+                return softApConfig.getSsid();
+            }
+        }
+        return mDialog.getContext().getString(R.string.quick_settings_hotspot_label);
+    }
+
+    String getHotspotSummary() {
+        Context context = mDialog.getContext();
+        if (mInternetDialogController.isDataSaverEnabled()) {
+            return context.getString(
+                    R.string.quick_settings_hotspot_secondary_label_data_saver_enabled);
+        } else if (mInternetDialogController.isHotspotTransient()) {
+            return context.getString(R.string.quick_settings_hotspot_secondary_label_transient);
+        } else if (mInternetDialogController.isHotspotEnabled()) {
+            int numDevices = mInternetDialogController.getHotspotNumDevices();
+            if (numDevices > 0) {
+                return context.getResources().getQuantityString(
+                        R.plurals.quick_settings_internet_hotspot_summary_num_devices,
+                        numDevices, numDevices);
+            }
+            return context.getString(R.string.switch_bar_on);
+        }
+        return context.getString(R.string.switch_bar_off);
     }
 
     private void setProgressBarVisible(boolean visible) {
@@ -1254,6 +1350,12 @@ public class InternetDialogDelegate implements
     @Override
     public void onWifiScan(boolean isScan) {
         setProgressBarVisible(isScan);
+    }
+
+    @Override
+    public void onHotspotChanged() {
+        mHandler.post(() -> updateDialog(false /* shouldUpdateMobileNetwork */,
+                true /* shouldUpdateHotspot */));
     }
 
     @Override
