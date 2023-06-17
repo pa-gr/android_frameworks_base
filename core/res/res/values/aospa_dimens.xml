@@ -31,6 +31,6 @@
 
     <!-- Blur radius used by SystemUI -->
     <dimen name="min_window_blur_radius">1px</dimen>
-    <dimen name="max_window_blur_radius">23px</dimen>
+    <dimen name="max_window_blur_radius">17.5dp</dimen>
 
 </resources>
