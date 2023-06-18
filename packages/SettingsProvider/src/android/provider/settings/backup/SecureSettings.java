@@ -281,6 +281,7 @@ public class SecureSettings {
         Settings.Secure.ON_DEVICE_INTELLIGENCE_IDLE_TIMEOUT_MS,
         Settings.Secure.DOZE_PICK_UP_GESTURE_AMBIENT,
         Settings.Secure.DOZE_TAP_GESTURE_AMBIENT,
-        Settings.Secure.DOZE_ON_CHARGE
+        Settings.Secure.DOZE_ON_CHARGE,
+        Settings.Secure.BERRY_BLACK_THEME
     };
 }
