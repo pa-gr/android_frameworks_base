@@ -37,4 +37,7 @@
     <!-- Interval between subsequent shifting of statusbar and navbar contents, in seconds -->
     <integer name="config_statusBarBurnInProtectionShiftInterval">60</integer>
 
+    <!-- Whether long press is required to activate keyguard quick affordance buttons -->
+    <bool name="config_keyguardQuickAffordanceRequiresLongPress">true</bool>
+
 </resources>
