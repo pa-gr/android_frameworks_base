@@ -38,8 +38,10 @@ public class PropImitationHooks {
 
     private static final int FEATURE_GMS_PROP_IMITATION = 1 << 0;
     private static final int FEATURE_GMS_BLOCK_KEY_ATTESTATION = 1 << 1;
+    private static final int FEATURE_GMS_KEYBOX_IMITATION = 1 << 2;
     private static final int FEATURE_ALL = FEATURE_GMS_PROP_IMITATION
-            | FEATURE_GMS_BLOCK_KEY_ATTESTATION;
+            | FEATURE_GMS_BLOCK_KEY_ATTESTATION
+            | FEATURE_GMS_KEYBOX_IMITATION;
 
     private static final String PACKAGE_ARCORE = "com.google.ar.core";
     private static final String PACKAGE_FINSKY = "com.android.vending";
@@ -71,6 +73,8 @@ public class PropImitationHooks {
             (sEnabledFeatures & FEATURE_GMS_PROP_IMITATION) != 0;
     private static final Boolean sEnableKeyAttestationBlock =
             (sEnabledFeatures & FEATURE_GMS_BLOCK_KEY_ATTESTATION) != 0;
+    protected static final Boolean sEnableKeyboxImitation =
+            (sEnabledFeatures & FEATURE_GMS_KEYBOX_IMITATION) != 0;
 
     private static volatile JSONObject sCertifiedProps;
     private static volatile String sStockFp, sNetflixModel;
@@ -273,6 +277,12 @@ public class PropImitationHooks {
     public static void onEngineGetCertificateChain() {
         if (!sEnableKeyAttestationBlock) {
             dlog("Key attestation blocking is disabled by user");
+            return;
+        }
+
+        // If a keybox is found, don't block key attestation
+        if (KeyProviderManager.isKeyboxAvailable()) {
+            dlog("Key attestation blocking is disabled because a keybox is defined to spoof");
             return;
         }
 

@@ -107,9 +107,10 @@
     <!-- Location indicator -->
     <java-symbol type="drawable" name="stat_sys_location" />
 
-    <!-- PropImitationHooks -->
+    <!-- ImitationHooks -->
     <java-symbol type="raw" name="certified_build_props" />
     <java-symbol type="string" name="config_stockFingerprint" />
     <java-symbol type="string" name="config_netflixSpoofModel" />
+    <java-symbol type="array" name="config_certifiedKeybox" />
 
 </resources>
