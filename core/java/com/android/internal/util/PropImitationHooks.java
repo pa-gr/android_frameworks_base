@@ -14,6 +14,7 @@ import android.content.res.Resources;
 import android.os.Build;
 import android.os.Binder;
 import android.os.Process;
+import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.Log;
@@ -35,6 +36,7 @@ public class PropImitationHooks {
 
     private static final String TAG = "PropImitationHooks";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+    private static final String PIH_SERVICE_NAME = "pih_manager";
 
     private static final int FEATURE_GMS_PROP_IMITATION = 1 << 0;
     private static final int FEATURE_GMS_BLOCK_KEY_ATTESTATION = 1 << 1;
@@ -45,8 +47,8 @@ public class PropImitationHooks {
 
     private static final String PACKAGE_ARCORE = "com.google.ar.core";
     private static final String PACKAGE_FINSKY = "com.android.vending";
-    private static final String PACKAGE_GMS = "com.google.android.gms";
-    private static final String PROCESS_GMS_UNSTABLE = PACKAGE_GMS + ".unstable";
+    public static final String PACKAGE_GMS = "com.google.android.gms";
+    public static final String PROCESS_GMS_UNSTABLE = PACKAGE_GMS + ".unstable";
     private static final String PACKAGE_NETFLIX = "com.netflix.mediaclient";
     private static final String PACKAGE_GPHOTOS = "com.google.android.apps.photos";
 
@@ -82,6 +84,7 @@ public class PropImitationHooks {
     private static volatile String sProcessName;
     private static volatile boolean sIsPixelDevice, sIsGms, sIsFinsky, sIsPhotos;
     private static volatile Context sContext;
+    private static volatile IPihManager sPihManager;
 
     public static void setProps(Context context) {
         final String packageName = context.getPackageName();
@@ -144,26 +147,24 @@ public class PropImitationHooks {
         setPropValue(key, value, false);
     }
 
+    public static IPihManager getPihManager() {
+        if (sPihManager == null) {
+            sPihManager = IPihManager.Stub.asInterface(ServiceManager.getService(PIH_SERVICE_NAME));
+        }
+        return sPihManager;
+    }
+
     private static void loadCertifiedProps() {
-        byte[] jsonBytes;
-        try {
-            jsonBytes = sContext.getResources().openRawResource(
-                    R.raw.certified_build_props).readAllBytes();
-        } catch (IOException e) {
-            Log.e(TAG, "loadCertifiedProps: failed to read json!", e);
-            return;
-        }
-
-        String jsonString = new String(jsonBytes, StandardCharsets.UTF_8);
-        if (TextUtils.isEmpty(jsonString)) {
-            dlog("loadCertifiedProps: json is empty, bailing");
+        IPihManager pihManager = getPihManager();
+        if (pihManager == null) {
+            dlog("Failed to get pih manager service.");
             return;
         }
 
         try {
-            sCertifiedProps = new JSONObject(jsonString);
-        } catch (JSONException e) {
-            Log.e(TAG, "loadCertifiedProps: failed to parse json!", e);
+            sCertifiedProps = new JSONObject(pihManager.getCertifiedPropertiesJson());
+        } catch (Exception e) {
+            Log.e(TAG, "loadCertifiedProps failed!", e);
         }
     }
 

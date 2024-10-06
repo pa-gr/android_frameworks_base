@@ -12,7 +12,15 @@ package com.android.internal.util;
  *
  * @hide
  */
-public interface IKeyboxProvider {
+interface IKeyboxProvider {
+
+    /**
+     * Name of this keybox provider.
+     *
+     * @return String a name
+     * @hide
+     */
+    String getName();
 
     /**
      * Checks if a valid keybox is available.

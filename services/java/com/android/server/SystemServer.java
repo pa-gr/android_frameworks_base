@@ -1742,6 +1742,10 @@ public final class SystemServer implements Dumpable {
             mSystemServiceManager.startService(PowerOffAlarmService.class);
             t.traceEnd();
 
+            t.traceBegin("StartPihManagerService");
+            mSystemServiceManager.startService(PihManagerService.class);
+            t.traceEnd();
+
         } catch (Throwable e) {
             Slog.e("System", "******************************************");
             Slog.e("System", "************ Failure starting core service");
