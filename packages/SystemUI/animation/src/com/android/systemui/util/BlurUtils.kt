@@ -14,42 +14,28 @@
  * limitations under the License.
  */
 
-package com.android.systemui.statusbar
+package com.android.systemui.util
 
 import android.app.ActivityManager
 import android.content.res.Resources
 import android.os.SystemProperties
-import android.os.Trace
-import android.os.Trace.TRACE_TAG_APP
-import android.util.IndentingPrintWriter
 import android.util.MathUtils
 import android.view.CrossWindowBlurListeners
 import android.view.CrossWindowBlurListeners.CROSS_WINDOW_BLUR_SUPPORTED
 import android.view.SurfaceControl
 import android.view.ViewRootImpl
-import androidx.annotation.VisibleForTesting
 import com.android.internal.R
-import com.android.systemui.Dumpable
-import com.android.systemui.dagger.SysUISingleton
-import com.android.systemui.dagger.qualifiers.Main
-import com.android.systemui.dump.DumpManager
-import java.io.PrintWriter
-import javax.inject.Inject
 
-@SysUISingleton
-open class BlurUtils @Inject constructor(
-    @Main private val resources: Resources,
-    private val crossWindowBlurListeners: CrossWindowBlurListeners,
-    dumpManager: DumpManager
-) : Dumpable {
+/**
+ * Minimal copy of com.android.systemui.statusbar.BlurUtils
+ */
+class BlurUtils(
+    private val resources: Resources,
+) {
     val minBlurRadius = resources.getDimensionPixelSize(R.dimen.min_window_blur_radius)
     val maxBlurRadius = resources.getDimensionPixelSize(R.dimen.max_window_blur_radius)
     private var lastAppliedBlur = 0
     private var earlyWakeupEnabled = false
-
-    init {
-        dumpManager.registerDumpable(this)
-    }
 
     /**
      * Translates a ratio from 0 to 1 to a blur radius in pixels.
@@ -83,8 +69,6 @@ open class BlurUtils @Inject constructor(
             return
         }
         if (lastAppliedBlur == 0 && radius != 0) {
-            Trace.asyncTraceForTrackBegin(
-                    TRACE_TAG_APP, TRACK_NAME, "eEarlyWakeup (prepareBlur)", 0)
             earlyWakeupEnabled = true
             createTransaction().use {
                 it.setEarlyWakeupStart()
@@ -108,18 +92,11 @@ open class BlurUtils @Inject constructor(
             if (supportsBlursOnWindows()) {
                 it.setBackgroundBlurRadius(viewRootImpl.surfaceControl, radius)
                 if (!earlyWakeupEnabled && lastAppliedBlur == 0 && radius != 0) {
-                    Trace.asyncTraceForTrackBegin(
-                        TRACE_TAG_APP,
-                        TRACK_NAME,
-                        "eEarlyWakeup (applyBlur)",
-                        0
-                    )
                     it.setEarlyWakeupStart()
                     earlyWakeupEnabled = true
                 }
                 if (earlyWakeupEnabled && lastAppliedBlur != 0 && radius == 0) {
                     it.setEarlyWakeupEnd()
-                    Trace.asyncTraceForTrackEnd(TRACE_TAG_APP, TRACK_NAME, 0)
                     earlyWakeupEnabled = false
                 }
                 lastAppliedBlur = radius
@@ -129,8 +106,7 @@ open class BlurUtils @Inject constructor(
         }
     }
 
-    @VisibleForTesting
-    open fun createTransaction(): SurfaceControl.Transaction {
+    fun createTransaction(): SurfaceControl.Transaction {
         return SurfaceControl.Transaction()
     }
 
@@ -140,25 +116,9 @@ open class BlurUtils @Inject constructor(
      * @see android.view.SurfaceControl.Transaction#setBackgroundBlurRadius(SurfaceControl, int)
      * @return {@code true} when supported.
      */
-    open fun supportsBlursOnWindows(): Boolean {
+    fun supportsBlursOnWindows(): Boolean {
         return CROSS_WINDOW_BLUR_SUPPORTED && ActivityManager.isHighEndGfx() &&
-                crossWindowBlurListeners.isCrossWindowBlurEnabled() &&
-                !SystemProperties.getBoolean("persist.sysui.disableBlur", false)
-    }
-
-    override fun dump(pw: PrintWriter, args: Array<out String>) {
-        IndentingPrintWriter(pw, "  ").let {
-            it.println("BlurUtils:")
-            it.increaseIndent()
-            it.println("minBlurRadius: $minBlurRadius")
-            it.println("maxBlurRadius: $maxBlurRadius")
-            it.println("supportsBlursOnWindows: ${supportsBlursOnWindows()}")
-            it.println("CROSS_WINDOW_BLUR_SUPPORTED: $CROSS_WINDOW_BLUR_SUPPORTED")
-            it.println("isHighEndGfx: ${ActivityManager.isHighEndGfx()}")
-        }
-    }
-
-    companion object {
-        const val TRACK_NAME = "BlurUtils"
+                !SystemProperties.getBoolean("persist.sysui.disableBlur", false) &&
+                CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled()
     }
 }
