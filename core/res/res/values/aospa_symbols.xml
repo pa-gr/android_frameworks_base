@@ -120,4 +120,7 @@
     <!-- For dynamic default font styles -->
     <java-symbol type="string" name="config_bodyFontFamily" />
 
+    <!-- USB -->
+    <java-symbol type="string" name="config_usbFunctionActivity" />
+
 </resources>

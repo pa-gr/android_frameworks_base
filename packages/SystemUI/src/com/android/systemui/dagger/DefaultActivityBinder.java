@@ -35,6 +35,7 @@ import com.android.systemui.usb.UsbAccessoryUriActivity;
 import com.android.systemui.usb.UsbConfirmActivity;
 import com.android.systemui.usb.UsbDebuggingActivity;
 import com.android.systemui.usb.UsbDebuggingSecondaryUserActivity;
+import com.android.systemui.usb.UsbFunctionActivity;
 import com.android.systemui.usb.UsbPermissionActivity;
 import com.android.systemui.user.CreateUserActivity;
 
@@ -102,6 +103,12 @@ public abstract class DefaultActivityBinder {
     @IntoMap
     @ClassKey(UsbAccessoryUriActivity.class)
     public abstract Activity bindUsbAccessoryUriActivity(UsbAccessoryUriActivity activity);
+
+    /** Inject into UsbFunctionActivity. */
+    @Binds
+    @IntoMap
+    @ClassKey(UsbFunctionActivity.class)
+    public abstract Activity bindUsbFunctionActivity(UsbFunctionActivity activity);
 
     /** Inject into CreateUserActivity. */
     @Binds
