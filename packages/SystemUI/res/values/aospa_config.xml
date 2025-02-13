@@ -27,4 +27,8 @@
     <!-- Doze: does the single tap sensor need a proximity check? -->
     <bool name="doze_single_tap_proximity_check">false</bool>
 
+    <!-- Whether to briefly keep the display in ON state when transitioning from
+         DOZE_AOD_PAUSED to DOZE_AOD state. -->
+    <bool name="config_displayTurnsOnWhenResumingAod">false</bool>
+
 </resources>
