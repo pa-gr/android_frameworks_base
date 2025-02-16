@@ -36,11 +36,10 @@ public class PropImitationHooks {
     private static final String TAG = "PropImitationHooks";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-    private static final Boolean sDisableGmsProps = SystemProperties.getBoolean(
-            "persist.sys.pihooks.disable.gms_props", false);
-
-    private static final Boolean sDisableKeyAttestationBlock = SystemProperties.getBoolean(
-            "persist.sys.pihooks.disable.gms_key_attestation_block", false);
+    private static final int FEATURE_GMS_PROP_IMITATION = 1 << 0;
+    private static final int FEATURE_GMS_BLOCK_KEY_ATTESTATION = 1 << 1;
+    private static final int FEATURE_ALL = FEATURE_GMS_PROP_IMITATION
+            | FEATURE_GMS_BLOCK_KEY_ATTESTATION;
 
     private static final String PACKAGE_ARCORE = "com.google.ar.core";
     private static final String PACKAGE_FINSKY = "com.android.vending";
@@ -64,6 +63,14 @@ public class PropImitationHooks {
         "PIXEL_2020_MIDYEAR_EXPERIENCE",
         "PIXEL_EXPERIENCE"
     );
+
+    private static final int sEnabledFeatures = SystemProperties.getInt(
+            "persist.sys.pihooks.enabled_features", FEATURE_ALL);
+
+    private static final Boolean sEnableGmsProps =
+            (sEnabledFeatures & FEATURE_GMS_PROP_IMITATION) != 0;
+    private static final Boolean sEnableKeyAttestationBlock =
+            (sEnabledFeatures & FEATURE_GMS_BLOCK_KEY_ATTESTATION) != 0;
 
     private static volatile JSONObject sCertifiedProps;
     private static volatile String sStockFp, sNetflixModel;
@@ -157,7 +164,7 @@ public class PropImitationHooks {
     }
 
     private static void setCertifiedPropsForGms() {
-        if (sDisableGmsProps) {
+        if (!sEnableGmsProps) {
             dlog("GMS prop imitation is disabled by user");
             return;
         }
@@ -241,7 +248,7 @@ public class PropImitationHooks {
     }
 
     public static boolean shouldBypassTaskPermission(Context context) {
-        if (sDisableGmsProps) {
+        if (!sEnableGmsProps) {
             return false;
         }
 
@@ -264,7 +271,7 @@ public class PropImitationHooks {
     }
 
     public static void onEngineGetCertificateChain() {
-        if (sDisableKeyAttestationBlock) {
+        if (!sEnableKeyAttestationBlock) {
             dlog("Key attestation blocking is disabled by user");
             return;
         }
