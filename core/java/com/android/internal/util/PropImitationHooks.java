@@ -5,10 +5,7 @@
 
 package com.android.internal.util;
 
-import android.app.ActivityTaskManager;
 import android.app.Application;
-import android.app.TaskStackListener;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.Build;
@@ -54,9 +51,6 @@ public class PropImitationHooks {
 
     private static final String PROP_SECURITY_PATCH = "persist.sys.pihooks.security_patch";
     private static final String PROP_FIRST_API_LEVEL = "persist.sys.pihooks.first_api_level";
-
-    private static final ComponentName GMS_ADD_ACCOUNT_ACTIVITY = ComponentName.unflattenFromString(
-            "com.google.android.gms/.auth.uiflows.minutemaid.MinuteMaidActivity");
 
     private static final Set<String> sPixelFeatures = Set.of(
         "PIXEL_2017_PRELOAD",
@@ -181,29 +175,8 @@ public class PropImitationHooks {
             return;
         }
 
-        final boolean was = isGmsAddAccountActivityOnTop();
-        final TaskStackListener taskStackListener = new TaskStackListener() {
-            @Override
-            public void onTaskStackChanged() {
-                final boolean is = isGmsAddAccountActivityOnTop();
-                if (is ^ was) {
-                    dlog("GmsAddAccountActivityOnTop is:" + is + " was:" + was +
-                            ", killing myself!"); // process will restart automatically later
-                    Process.killProcess(Process.myPid());
-                }
-            }
-        };
-        if (!was) {
-            dlog("Spoofing build for GMS");
-            setCertifiedProps();
-        } else {
-            dlog("Skip spoofing build for GMS, because GmsAddAccountActivityOnTop");
-        }
-        try {
-            ActivityTaskManager.getService().registerTaskStackListener(taskStackListener);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to register task stack listener!", e);
-        }
+        dlog("Spoofing build for GMS");
+        setCertifiedProps();
     }
 
     private static void setCertifiedProps() {
@@ -238,36 +211,6 @@ public class PropImitationHooks {
         } catch (Exception e) {
             Log.e(TAG, "Failed to set system prop " + name + "=" + value, e);
         }
-    }
-
-    private static boolean isGmsAddAccountActivityOnTop() {
-        try {
-            final ActivityTaskManager.RootTaskInfo focusedTask =
-                    ActivityTaskManager.getService().getFocusedRootTaskInfo();
-            return focusedTask != null && focusedTask.topActivity != null
-                    && focusedTask.topActivity.equals(GMS_ADD_ACCOUNT_ACTIVITY);
-        } catch (Exception e) {
-            Log.e(TAG, "Unable to get top activity!", e);
-        }
-        return false;
-    }
-
-    public static boolean shouldBypassTaskPermission(Context context) {
-        if (!sEnableGmsProps) {
-            return false;
-        }
-
-        // GMS doesn't have MANAGE_ACTIVITY_TASKS permission
-        final int callingUid = Binder.getCallingUid();
-        final int gmsUid;
-        try {
-            gmsUid = context.getPackageManager().getApplicationInfo(PACKAGE_GMS, 0).uid;
-            // dlog("shouldBypassTaskPermission: gmsUid:" + gmsUid + " callingUid:" + callingUid);
-        } catch (Exception e) {
-            Log.e(TAG, "shouldBypassTaskPermission: unable to get gms uid", e);
-            return false;
-        }
-        return gmsUid == callingUid;
     }
 
     private static boolean isCallerSafetyNet() {

@@ -10,6 +10,9 @@ import static com.android.internal.util.PropImitationHooks.PACKAGE_GMS;
 import static com.android.internal.util.PropImitationHooks.PROCESS_GMS_UNSTABLE;
 
 import android.app.ActivityManager;
+import android.app.ActivityTaskManager;
+import android.app.TaskStackListener;
+import android.content.ComponentName;
 import android.content.Context;
 import android.os.Binder;
 import android.os.Handler;
@@ -39,10 +42,17 @@ public class PihManagerService extends SystemService {
 
     private static final String TAG = "PihManager";
     private static final String SERVICE_NAME = "pih_manager";
+    private static final String EMPTY_JSON = "{}";
+
+    private static final ComponentName GMS_ADD_ACCOUNT_ACTIVITY = ComponentName.unflattenFromString(
+            "com.google.android.gms/.auth.uiflows.minutemaid.MinuteMaidActivity");
 
     private final Object mLock = new Object();
-    private String mCertifiedProps = "{}";
+    private String mCertifiedProps = EMPTY_JSON;
     private IKeyboxProvider mKeyboxProvider = new DefaultKeyboxProvider(getContext());
+
+    private Integer mGmsUid;
+    private boolean mGmsIsAddingAccount;
 
     public PihManagerService(Context context) {
         super(context);
@@ -57,7 +67,10 @@ public class PihManagerService extends SystemService {
 
     @Override
     public void onBootPhase(int phase) {
-        // noop
+        if (phase == PHASE_BOOT_COMPLETED) {
+            dlog("PHASE_BOOT_COMPLETED");
+            registerGmsTaskListener();
+        }
     }
 
     private void loadCertifiedProps() {
@@ -73,25 +86,75 @@ public class PihManagerService extends SystemService {
         mCertifiedProps = new String(jsonBytes, StandardCharsets.UTF_8);
     }
 
-    private void restartGms() {
-        final int gmsUid;
+    private void registerGmsTaskListener() {
+        mGmsIsAddingAccount = isGmsAddAccountActivityOnTop();
+
+        final TaskStackListener taskStackListener = new TaskStackListener() {
+            @Override
+            public void onTaskStackChanged() {
+                final boolean is = isGmsAddAccountActivityOnTop();
+                if (is != mGmsIsAddingAccount) {
+                    dlog("GmsAddAccountActivityOnTop is:" + is + " was:" + mGmsIsAddingAccount);
+                    mGmsIsAddingAccount = is;
+                    restartGms();
+                }
+            }
+        };
+
         try {
-            gmsUid = getContext().getPackageManager().getApplicationInfo(PACKAGE_GMS, 0).uid;
+            ActivityTaskManager.getService().registerTaskStackListener(taskStackListener);
         } catch (Exception e) {
-            Slog.e(TAG, "restartGms failed: unable to get gms uid", e);
+            Log.e(TAG, "Failed to register task stack listener!", e);
+        }
+    }
+
+    private static boolean isGmsAddAccountActivityOnTop() {
+        try {
+            final ActivityTaskManager.RootTaskInfo focusedTask =
+                    ActivityTaskManager.getService().getFocusedRootTaskInfo();
+            return focusedTask != null && focusedTask.topActivity != null
+                    && focusedTask.topActivity.equals(GMS_ADD_ACCOUNT_ACTIVITY);
+        } catch (Exception e) {
+            Slog.e(TAG, "Unable to get top activity!", e);
+        }
+        return false;
+    }
+
+    private void restartGms() {
+        final Integer gmsUid = getGmsUid();
+        if (gmsUid == null) {
+            Slog.e(TAG, "Cannot restart gms without uid!");
             return;
         }
 
         try {
             ActivityManager.getService().killApplicationProcess(PROCESS_GMS_UNSTABLE, gmsUid);
+            dlog("restartGms success");
         } catch (RemoteException e) {
             Slog.e(TAG, "restartGms failed", e);
         }
     }
 
+    private int getGmsUid() {
+        if (mGmsUid == null) {
+            try {
+                mGmsUid = getContext().getPackageManager().getApplicationInfo(PACKAGE_GMS, 0).uid;
+            } catch (Exception e) {
+                Slog.e(TAG, "Failed to get gms uid!", e);
+            }
+        }
+        return mGmsUid;
+    }
+
     private final IPihManager.Stub mService = new IPihManager.Stub() {
         @Override
         public String getCertifiedPropertiesJson() {
+            final Integer gmsUid = getGmsUid();
+            if (gmsUid != null && Binder.getCallingUid() == gmsUid && mGmsIsAddingAccount) {
+                dlog("getCertifiedPropertiesJson: gms is adding account, return none!");
+                return EMPTY_JSON;
+            }
+
             return mCertifiedProps;
         }
 
