@@ -23,6 +23,7 @@ import android.util.Slog;
 
 import com.android.internal.util.IKeyboxProvider;
 import com.android.internal.util.IPihManager;
+import com.android.internal.util.PropImitationHooks;
 import com.android.internal.R;
 import com.android.server.SystemService;
 
@@ -53,6 +54,17 @@ public class PihManagerService extends SystemService {
 
     private Integer mGmsUid;
     private boolean mGmsIsAddingAccount;
+
+    private final TaskStackListener mGmsTaskListener = new TaskStackListener() {
+        @Override
+        public void onTaskStackChanged() {
+            final boolean is = isGmsAddAccountActivityOnTop();
+            if (is != mGmsIsAddingAccount) {
+                dlog("GmsAddAccountActivityOnTop is:" + is + " was:" + mGmsIsAddingAccount);
+                restartGms();
+            }
+        }
+    };
 
     public PihManagerService(Context context) {
         super(context);
@@ -87,24 +99,24 @@ public class PihManagerService extends SystemService {
     }
 
     private void registerGmsTaskListener() {
+        if (!PropImitationHooks.sEnableGmsProps) {
+            return;
+        }
+
         mGmsIsAddingAccount = isGmsAddAccountActivityOnTop();
 
-        final TaskStackListener taskStackListener = new TaskStackListener() {
-            @Override
-            public void onTaskStackChanged() {
-                final boolean is = isGmsAddAccountActivityOnTop();
-                if (is != mGmsIsAddingAccount) {
-                    dlog("GmsAddAccountActivityOnTop is:" + is + " was:" + mGmsIsAddingAccount);
-                    mGmsIsAddingAccount = is;
-                    restartGms();
-                }
-            }
-        };
-
         try {
-            ActivityTaskManager.getService().registerTaskStackListener(taskStackListener);
+            ActivityTaskManager.getService().registerTaskStackListener(mGmsTaskListener);
         } catch (Exception e) {
             Log.e(TAG, "Failed to register task stack listener!", e);
+        }
+    }
+
+    private void unregisterGmsTaskListener() {
+        try {
+            ActivityTaskManager.getService().unregisterTaskStackListener(mGmsTaskListener);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to unregister task stack listener!", e);
         }
     }
 
@@ -127,12 +139,16 @@ public class PihManagerService extends SystemService {
             return;
         }
 
+        unregisterGmsTaskListener();
+
         try {
             ActivityManager.getService().killApplicationProcess(PROCESS_GMS_UNSTABLE, gmsUid);
             dlog("restartGms success");
         } catch (RemoteException e) {
             Slog.e(TAG, "restartGms failed", e);
         }
+
+        registerGmsTaskListener();
     }
 
     private int getGmsUid() {
