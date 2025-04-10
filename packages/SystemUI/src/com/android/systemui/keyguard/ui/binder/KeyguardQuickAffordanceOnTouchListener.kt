@@ -69,7 +69,7 @@ class KeyguardQuickAffordanceOnTouchListener(
                 false
             }
             MotionEvent.ACTION_MOVE -> {
-                if (!isUsingAccurateTool(event)) {
+                if (requireLongPress && !isUsingAccurateTool(event)) {
                     // Moving too far while performing a long-press gesture cancels that
                     // gesture.
                     if (
@@ -85,7 +85,7 @@ class KeyguardQuickAffordanceOnTouchListener(
                 false
             }
             MotionEvent.ACTION_UP -> {
-                if (isUsingAccurateTool(event)) {
+                if (!requireLongPress || isUsingAccurateTool(event)) {
                     // When using an accurate tool type (stylus, mouse, etc.), we don't require
                     // a long-press gesture to activate the quick affordance. Therefore, lifting
                     // the pointer performs a click.
