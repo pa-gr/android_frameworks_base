@@ -304,7 +304,7 @@ constructor(
             }
 
             override fun onUiModeChanged() {
-                updateResources()
+                onThemeChanged()
             }
         }
 
