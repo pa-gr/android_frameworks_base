@@ -378,11 +378,7 @@ public class LegacyNotificationIconAreaControllerImpl implements
                         hideRepliedMessages, hideCurrentMedia, hidePulsing)) {
                     StatusBarIconView iconView = function.apply(entry);
                     if (iconView != null) {
-                        // Filter out duplicate icons.
-                        if (!toShow.stream().anyMatch(
-                                v -> v.equalIcons(v.getSourceIcon(), iconView.getSourceIcon()))) {
-                            toShow.add(iconView);
-                        }
+                        toShow.add(iconView);
                     }
                 }
             }
