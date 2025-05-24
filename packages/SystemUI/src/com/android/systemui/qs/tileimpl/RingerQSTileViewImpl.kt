@@ -16,6 +16,9 @@ import android.media.AudioManager
 import android.media.AudioManager.RINGER_MODE_NORMAL
 import android.media.AudioManager.RINGER_MODE_SILENT
 import android.media.AudioManager.RINGER_MODE_VIBRATE
+import android.os.VibratorManager
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -42,6 +45,8 @@ class RingerQSTileViewImpl @JvmOverloads constructor(
     private var activeRingerMode: Int = RINGER_MODE_SILENT
     private lateinit var tileState: QSTile.State
     private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val vibManager = context.getSystemService(VibratorManager::class.java)
+    private val vibrator by lazy { vibManager?.defaultVibrator }
 
     private val stateChangeRunnable = Runnable { handleStateChanged() }
     private val ringerModeChangeRunnable = Runnable {
@@ -86,6 +91,7 @@ class RingerQSTileViewImpl @JvmOverloads constructor(
                         activeRingerMode = mode
                         removeCallbacks(ringerModeChangeRunnable)
                         post(ringerModeChangeRunnable)
+                        playFeedback()
                     }
                     return true
                 }
@@ -220,6 +226,23 @@ class RingerQSTileViewImpl @JvmOverloads constructor(
         val constrainedSquishiness = constrainSquishiness(squishinessFraction)
         bottom = top + (actualHeight * constrainedSquishiness).toInt()
         scrollY = (actualHeight - height) / 2
+    }
+
+    private fun playFeedback() {
+        when (activeRingerMode) {
+            RINGER_MODE_NORMAL -> audioManager?.playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD)
+            RINGER_MODE_VIBRATE -> vibrate(VibrationEffect.EFFECT_DOUBLE_CLICK)
+            RINGER_MODE_SILENT -> vibrate(VibrationEffect.EFFECT_CLICK)
+        }
+    }
+
+    private fun vibrate(effect: Int) {
+        if (vibrator?.hasVibrator() ?: false) {
+            vibrator!!.vibrate(
+                VibrationEffect.createPredefined(effect),
+                VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH)
+            )
+        }
     }
 
     // Tile background showing 3 evenly spaced dots
