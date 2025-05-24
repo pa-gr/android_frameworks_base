@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 
 /** Domain logic related to notification icons. */
 class NotificationIconsInteractor
@@ -120,6 +121,12 @@ constructor(
                     showPulsing = !isBypassEnabled,
                 )
             }
+            .map { notifs ->
+                notifs
+                    .filter { it.statusBarIcon != null }
+                    .distinctBy { it.statusBarIcon!!.toString() }
+                    .toSet()
+            }
             .flowOn(bgContext)
 }
 
@@ -141,6 +148,12 @@ constructor(
                     showDismissed = false,
                     showRepliedMessages = false,
                 )
+            }
+            .map { notifs ->
+                notifs
+                    .filter { it.statusBarIcon != null }
+                    .distinctBy { it.statusBarIcon!!.toString() }
+                    .toSet()
             }
             .flowOn(bgContext)
 }
