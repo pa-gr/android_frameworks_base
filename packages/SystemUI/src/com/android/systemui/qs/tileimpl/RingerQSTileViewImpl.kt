@@ -226,6 +226,7 @@ class RingerQSTileViewImpl @JvmOverloads constructor(
         val constrainedSquishiness = constrainSquishiness(squishinessFraction)
         bottom = top + (actualHeight * constrainedSquishiness).toInt()
         scrollY = (actualHeight - height) / 2
+        activeRingerIconContainer.scaleY = constrainedSquishiness
     }
 
     private fun playFeedback() {
