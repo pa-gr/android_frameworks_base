@@ -290,7 +290,10 @@ object KeyguardBottomAreaViewBinder {
                             isVisible ->
                             settingsMenu.animateVisibility(visible = isVisible)
                             if (isVisible) {
-                                vibratorHelper?.vibrate(KeyguardBottomAreaVibrations.Activated)
+                                KeyguardBottomAreaVibrations.vibrate(
+                                    helper = vibratorHelper,
+                                    isActivated = true
+                                )
                                 settingsMenu.setOnTouchListener(
                                     KeyguardSettingsButtonOnTouchListener(
                                         viewModel = viewModel.settingsMenuViewModel,
@@ -457,12 +460,7 @@ object KeyguardBottomAreaViewBinder {
                     shakeAnimator.doOnEnd { view.translationX = 0f }
                     shakeAnimator.start()
 
-                    vibratorHelper?.vibrate(
-                          if (KeyguardBottomAreaVibrations.areAllPrimitivesSupported) {
-                              KeyguardBottomAreaVibrations.Shake
-                          } else {
-                              KeyguardBottomAreaVibrations.ShakeAlt
-                          })
+                    KeyguardBottomAreaVibrations.shake(vibratorHelper)
                 }
                 view.onLongClickListener =
                     OnLongClickListener(falsingManager, viewModel, vibratorHelper, onTouchListener)
@@ -530,20 +528,9 @@ object KeyguardBottomAreaViewBinder {
                         slotId = viewModel.slotId,
                     )
                 )
-                vibratorHelper?.vibrate(
-                    if (viewModel.isActivated) {
-                        if (KeyguardBottomAreaVibrations.areAllPrimitivesSupported) {
-                            KeyguardBottomAreaVibrations.Activated
-                        } else {
-                            KeyguardBottomAreaVibrations.ActivatedAlt
-                        }
-                    } else {
-                        if (KeyguardBottomAreaVibrations.areAllPrimitivesSupported) {
-                            KeyguardBottomAreaVibrations.Deactivated
-                        } else {
-                            KeyguardBottomAreaVibrations.DeactivatedAlt
-                        }
-                    }
+                KeyguardBottomAreaVibrations.vibrate(
+                    helper = vibratorHelper,
+                    isActivated = viewModel.isActivated
                 )
             }
 

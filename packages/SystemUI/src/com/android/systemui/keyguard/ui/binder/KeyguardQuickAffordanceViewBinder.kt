@@ -227,7 +227,7 @@ object KeyguardQuickAffordanceViewBinder {
                     shakeAnimator.doOnEnd { view.translationX = 0f }
                     shakeAnimator.start()
 
-                    vibratorHelper?.vibrate(KeyguardBottomAreaVibrations.Shake)
+                    KeyguardBottomAreaVibrations.shake(vibratorHelper)
                 }
                 view.onLongClickListener =
                     OnLongClickListener(falsingManager, viewModel, vibratorHelper, onTouchListener)
@@ -304,12 +304,9 @@ object KeyguardQuickAffordanceViewBinder {
                         slotId = viewModel.slotId,
                     )
                 )
-                vibratorHelper?.vibrate(
-                    if (viewModel.isActivated) {
-                        KeyguardBottomAreaVibrations.Activated
-                    } else {
-                        KeyguardBottomAreaVibrations.Deactivated
-                    }
+                KeyguardBottomAreaVibrations.vibrate(
+                    helper = vibratorHelper,
+                    isActivated = viewModel.isActivated
                 )
             }
 

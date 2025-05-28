@@ -56,7 +56,10 @@ object KeyguardSettingsViewBinder {
                         viewModel.isVisible.distinctUntilChanged().collect { isVisible ->
                             view.animateVisibility(visible = isVisible)
                             if (isVisible) {
-                                vibratorHelper.vibrate(KeyguardBottomAreaVibrations.Activated)
+                                KeyguardBottomAreaVibrations.vibrate(
+                                    helper = vibratorHelper,
+                                    isActivated = true
+                                )
                                 view.setOnTouchListener(
                                     KeyguardSettingsButtonOnTouchListener(
                                         viewModel = viewModel,

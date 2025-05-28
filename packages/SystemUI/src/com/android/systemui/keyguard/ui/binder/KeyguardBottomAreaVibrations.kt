@@ -27,12 +27,13 @@ object KeyguardBottomAreaVibrations {
 
     private const val SmallVibrationScale = 0.3f
     private const val BigVibrationScale = 0.6f
-    val vibratorHelper: VibratorHelper? = null
-    val areAllPrimitivesSupported = vibratorHelper?.areAllPrimitivesSupported(
-            VibrationEffect.Composition.PRIMITIVE_TICK,
-            VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
-            VibrationEffect.Composition.PRIMITIVE_QUICK_FALL
-        ) ?: false
+
+    private val Primitives = intArrayOf(
+        VibrationEffect.Composition.PRIMITIVE_TICK,
+        VibrationEffect.Composition.PRIMITIVE_QUICK_RISE,
+        VibrationEffect.Composition.PRIMITIVE_QUICK_FALL
+    )
+
     val ShakeAlt = VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK)
     val Shake =
         VibrationEffect.startComposition()
@@ -81,4 +82,20 @@ object KeyguardBottomAreaVibrations {
                 0,
             )
             .compose()
+
+    fun vibrate(helper: VibratorHelper?, isActivated: Boolean) {
+        val primitivesSupported = helper?.areAllPrimitivesSupported(*Primitives) ?: return
+        helper!!.vibrate(
+            if (isActivated) {
+                if (primitivesSupported) Activated else ActivatedAlt
+            } else {
+                if (primitivesSupported) Deactivated else DeactivatedAlt
+            }
+        )
+    }
+
+    fun shake(helper: VibratorHelper?) {
+        val primitivesSupported = helper?.areAllPrimitivesSupported(*Primitives) ?: return
+        helper!!.vibrate(if (primitivesSupported) Shake else ShakeAlt)
+    }
 }
