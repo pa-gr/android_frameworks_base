@@ -21,10 +21,14 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Slog;
 
+import com.android.internal.os.BackgroundThread;
 import com.android.internal.util.IKeyboxProvider;
 import com.android.internal.util.IPihManager;
+import com.android.internal.util.PropImitationHooks;
 import com.android.internal.R;
+import com.android.server.LocalServices;
 import com.android.server.SystemService;
+import com.android.server.wm.ActivityTaskManagerInternal;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -34,10 +38,6 @@ import java.util.Map;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- * TODO:
- * - move gms add account activity listener here
- */
 public class PihManagerService extends SystemService {
 
     private static final String TAG = "PihManager";
@@ -50,9 +50,64 @@ public class PihManagerService extends SystemService {
     private final Object mLock = new Object();
     private String mCertifiedProps = EMPTY_JSON;
     private IKeyboxProvider mKeyboxProvider = new DefaultKeyboxProvider(getContext());
+    private final Handler mBgHandler = BackgroundThread.getHandler();
+    private ActivityTaskManagerInternal mAtmInternal;
 
-    private Integer mGmsUid;
+    private int mGmsUid = -1;
     private boolean mGmsIsAddingAccount;
+    private int mGmsAddAccountTaskId = -1;
+
+    private final TaskStackListener mTaskStackListener = new TaskStackListener() {
+        @Override
+        public void onTaskCreated(int taskId, ComponentName componentName) {
+            // dlog("created taskId=" + taskId + " component=" + componentName);
+            if (GMS_ADD_ACCOUNT_ACTIVITY.equals(componentName)) {
+                synchronized (mLock) {
+                    mGmsAddAccountTaskId = taskId;
+                    dlog("gms add account task created");
+                }
+            }
+        }
+
+        @Override
+        public void onTaskDescriptionChanged(ActivityManager.RunningTaskInfo taskInfo) {
+            if (GMS_ADD_ACCOUNT_ACTIVITY.equals(taskInfo.topActivity)) {
+                synchronized (mLock) {
+                    mGmsAddAccountTaskId = taskInfo.taskId;
+                    dlog("gms add account task set");
+                }
+            }
+        }
+
+        @Override
+        public void onTaskRemoved(int taskId) {
+            // dlog("removed taskId=" + taskId);
+            synchronized (mLock) {
+                if (taskId == mGmsAddAccountTaskId) {
+                    mGmsAddAccountTaskId = -1;
+                    dlog("gms add account task removed");
+                }
+            }
+        }
+
+        @Override
+        public void onTaskStackChanged() {
+            synchronized (mLock) {
+                // Only listen to task stack changes if the add-account activity task is running.
+                if (mGmsAddAccountTaskId == -1) return;
+                mBgHandler.post(() -> {
+                    final boolean is = isGmsAddAccountActivityOnTop();
+                    synchronized (mLock) {
+                        if (is != mGmsIsAddingAccount) {
+                            dlog("mGmsIsAddingAccount: " + mGmsIsAddingAccount + " => " + is);
+                            mGmsIsAddingAccount = is;
+                            restartGms();
+                        }
+                    }
+                });
+            }
+        }
+    };
 
     public PihManagerService(Context context) {
         super(context);
@@ -69,6 +124,7 @@ public class PihManagerService extends SystemService {
     public void onBootPhase(int phase) {
         if (phase == PHASE_BOOT_COMPLETED) {
             dlog("PHASE_BOOT_COMPLETED");
+            mAtmInternal = LocalServices.getService(ActivityTaskManagerInternal.class);
             registerGmsTaskListener();
         }
     }
@@ -87,42 +143,22 @@ public class PihManagerService extends SystemService {
     }
 
     private void registerGmsTaskListener() {
-        mGmsIsAddingAccount = isGmsAddAccountActivityOnTop();
-
-        final TaskStackListener taskStackListener = new TaskStackListener() {
-            @Override
-            public void onTaskStackChanged() {
-                final boolean is = isGmsAddAccountActivityOnTop();
-                if (is != mGmsIsAddingAccount) {
-                    dlog("GmsAddAccountActivityOnTop is:" + is + " was:" + mGmsIsAddingAccount);
-                    mGmsIsAddingAccount = is;
-                    restartGms();
-                }
-            }
-        };
-
-        try {
-            ActivityTaskManager.getService().registerTaskStackListener(taskStackListener);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to register task stack listener!", e);
+        if (!PropImitationHooks.sEnableGmsProps) {
+            return;
         }
+        mGmsIsAddingAccount = isGmsAddAccountActivityOnTop();
+        mAtmInternal.registerTaskStackListener(mTaskStackListener);
     }
 
-    private static boolean isGmsAddAccountActivityOnTop() {
-        try {
-            final ActivityTaskManager.RootTaskInfo focusedTask =
-                    ActivityTaskManager.getService().getFocusedRootTaskInfo();
-            return focusedTask != null && focusedTask.topActivity != null
-                    && focusedTask.topActivity.equals(GMS_ADD_ACCOUNT_ACTIVITY);
-        } catch (Exception e) {
-            Slog.e(TAG, "Unable to get top activity!", e);
-        }
-        return false;
+    private boolean isGmsAddAccountActivityOnTop() {
+        return mAtmInternal.getTopVisibleActivities()
+                .stream()
+                .anyMatch(a -> a.getComponentName().equals(GMS_ADD_ACCOUNT_ACTIVITY));
     }
 
     private void restartGms() {
-        final Integer gmsUid = getGmsUid();
-        if (gmsUid == null) {
+        final int gmsUid = getGmsUid();
+        if (gmsUid == -1) {
             Slog.e(TAG, "Cannot restart gms without uid!");
             return;
         }
@@ -136,7 +172,7 @@ public class PihManagerService extends SystemService {
     }
 
     private int getGmsUid() {
-        if (mGmsUid == null) {
+        if (mGmsUid == -1) {
             try {
                 mGmsUid = getContext().getPackageManager().getApplicationInfo(PACKAGE_GMS, 0).uid;
             } catch (Exception e) {
@@ -149,8 +185,8 @@ public class PihManagerService extends SystemService {
     private final IPihManager.Stub mService = new IPihManager.Stub() {
         @Override
         public String getCertifiedPropertiesJson() {
-            final Integer gmsUid = getGmsUid();
-            if (gmsUid != null && Binder.getCallingUid() == gmsUid && mGmsIsAddingAccount) {
+            final int gmsUid = getGmsUid();
+            if (Binder.getCallingUid() == gmsUid && mGmsIsAddingAccount) {
                 dlog("getCertifiedPropertiesJson: gms is adding account, return none!");
                 return EMPTY_JSON;
             }

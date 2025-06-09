@@ -65,7 +65,7 @@ public class PropImitationHooks {
     private static final int sEnabledFeatures = SystemProperties.getInt(
             "persist.sys.pihooks.enabled_features", FEATURE_ALL);
 
-    private static final Boolean sEnableGmsProps =
+    public static final Boolean sEnableGmsProps =
             (sEnabledFeatures & FEATURE_GMS_PROP_IMITATION) != 0;
     private static final Boolean sEnableKeyAttestationBlock =
             (sEnabledFeatures & FEATURE_GMS_BLOCK_KEY_ATTESTATION) != 0;
