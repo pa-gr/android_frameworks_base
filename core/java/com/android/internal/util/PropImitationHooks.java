@@ -43,7 +43,7 @@ public class PropImitationHooks {
             | FEATURE_GMS_KEYBOX_IMITATION;
 
     private static final String PACKAGE_ARCORE = "com.google.ar.core";
-    private static final String PACKAGE_FINSKY = "com.android.vending";
+    public static final String PACKAGE_FINSKY = "com.android.vending";
     public static final String PACKAGE_GMS = "com.google.android.gms";
     public static final String PROCESS_GMS_UNSTABLE = PACKAGE_GMS + ".unstable";
     private static final String PACKAGE_NETFLIX = "com.netflix.mediaclient";

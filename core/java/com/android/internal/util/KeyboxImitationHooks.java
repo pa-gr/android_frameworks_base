@@ -174,12 +174,16 @@ public class KeyboxImitationHooks {
         if (response == null || response.metadata == null || response.metadata.certificate == null)
             return response;
 
-        final String processName = Application.getProcessName();
-        if (TextUtils.isEmpty(processName)) {
-            Log.e(TAG, "Null process name");
+        sProcessName = Application.getProcessName();
+        if (TextUtils.isEmpty(sProcessName)) {
             return response;
         }
-        sProcessName = processName;
+
+        // We spoof only gms and play store
+        if (!(sProcessName.contains(PropImitationHooks.PACKAGE_GMS)
+                || sProcessName.contains(PropImitationHooks.PACKAGE_FINSKY))) {
+            return response;
+        }
 
         // If no keybox is found, don't continue spoofing
         if (!KeyProviderManager.isKeyboxAvailable()) {

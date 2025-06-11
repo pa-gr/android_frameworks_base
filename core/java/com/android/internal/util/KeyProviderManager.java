@@ -36,7 +36,7 @@ public final class KeyProviderManager {
 
     public static boolean isKeyboxAvailable() {
         if (!PropImitationHooks.sEnableKeyboxImitation) {
-            dlog("Key attestation spoofing is disabled by user");
+            dlog("Key attestation spoofing is disabled");
             return false;
         }
 
