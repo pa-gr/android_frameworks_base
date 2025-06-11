@@ -62,8 +62,11 @@ public class PropImitationHooks {
         "PIXEL_EXPERIENCE"
     );
 
+    // Enable only prop and keybox imitation, since blocking key attestation on A13+ now breaks
+    // play integrity completely.
     private static final int sEnabledFeatures = SystemProperties.getInt(
-            "persist.sys.pihooks.enabled_features", FEATURE_ALL);
+            "persist.sys.pihooks.enabled_features",
+            FEATURE_GMS_PROP_IMITATION | FEATURE_GMS_KEYBOX_IMITATION);
 
     public static final Boolean sEnableGmsProps =
             (sEnabledFeatures & FEATURE_GMS_PROP_IMITATION) != 0;
@@ -164,7 +167,7 @@ public class PropImitationHooks {
 
     private static void setCertifiedPropsForGms() {
         if (!sEnableGmsProps) {
-            dlog("GMS prop imitation is disabled by user");
+            dlog("GMS prop imitation is disabled");
             return;
         }
 
@@ -220,7 +223,7 @@ public class PropImitationHooks {
 
     public static void onEngineGetCertificateChain() {
         if (!sEnableKeyAttestationBlock) {
-            dlog("Key attestation blocking is disabled by user");
+            dlog("Key attestation blocking is disabled");
             return;
         }
 
