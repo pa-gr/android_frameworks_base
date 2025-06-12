@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.android.internal.util;
+package com.android.internal.util.aospa;
 
 import android.app.Application;
 import android.content.Context;

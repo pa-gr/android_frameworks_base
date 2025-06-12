@@ -6,8 +6,8 @@
 package com.android.server;
 
 import static android.os.Process.SYSTEM_UID;
-import static com.android.internal.util.PropImitationHooks.PACKAGE_GMS;
-import static com.android.internal.util.PropImitationHooks.PROCESS_GMS_UNSTABLE;
+import static com.android.internal.util.aospa.PropImitationHooks.PACKAGE_GMS;
+import static com.android.internal.util.aospa.PropImitationHooks.PROCESS_GMS_UNSTABLE;
 
 import android.app.ActivityManager;
 import android.app.ActivityTaskManager;
@@ -22,9 +22,9 @@ import android.util.Log;
 import android.util.Slog;
 
 import com.android.internal.os.BackgroundThread;
-import com.android.internal.util.IKeyboxProvider;
-import com.android.internal.util.IPihManager;
-import com.android.internal.util.PropImitationHooks;
+import com.android.internal.util.aospa.IKeyboxProvider;
+import com.android.internal.util.aospa.IPihManager;
+import com.android.internal.util.aospa.PropImitationHooks;
 import com.android.internal.R;
 import com.android.server.LocalServices;
 import com.android.server.SystemService;
@@ -38,6 +38,9 @@ import java.util.Map;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/**
+ * @hide
+ */
 public class PihManagerService extends SystemService {
 
     private static final String TAG = "PihManager";

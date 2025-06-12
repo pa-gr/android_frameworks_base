@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2024-2025 Paranoid Android
  * SPDX-License-Identifier: Apache-2.0
  */
-package com.android.internal.util;
+package com.android.internal.util.aospa;
 
 import android.os.RemoteException;
 import android.util.Log;

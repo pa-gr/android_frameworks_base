@@ -62,7 +62,7 @@ import android.view.Window;
 import android.view.WindowManagerGlobal;
 
 import com.android.internal.content.ReferrerIntent;
-import com.android.internal.util.PropImitationHooks;
+import com.android.internal.util.aospa.PropImitationHooks;
 
 import java.io.File;
 import java.lang.annotation.Retention;

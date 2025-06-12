@@ -48,7 +48,7 @@ import android.system.keystore2.ResponseCode;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.PropImitationHooks;
+import com.android.internal.util.aospa.PropImitationHooks;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
