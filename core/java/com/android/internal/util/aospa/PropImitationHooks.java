@@ -13,10 +13,13 @@ import android.os.Binder;
 import android.os.Process;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.R;
+import com.android.internal.util.ArrayUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -51,6 +54,8 @@ public class PropImitationHooks {
 
     private static final String PROP_SECURITY_PATCH = "persist.sys.pihooks.security_patch";
     private static final String PROP_FIRST_API_LEVEL = "persist.sys.pihooks.first_api_level";
+    public static final String PROP_NAME_SPOOFING_TARGETS =
+            "persist.sys.pihooks.gms_spoofing_targets";
 
     private static final Set<String> sPixelFeatures = Set.of(
         "PIXEL_2017_PRELOAD",
@@ -70,10 +75,14 @@ public class PropImitationHooks {
 
     public static final Boolean sEnableGmsProps =
             (sEnabledFeatures & FEATURE_GMS_PROP_IMITATION) != 0;
-    private static final Boolean sEnableKeyAttestationBlock =
+    public static final Boolean sEnableKeyAttestationBlock =
             (sEnabledFeatures & FEATURE_GMS_BLOCK_KEY_ATTESTATION) != 0;
-    protected static final Boolean sEnableKeyboxImitation =
+    public static final Boolean sEnableKeyboxImitation =
             (sEnabledFeatures & FEATURE_GMS_KEYBOX_IMITATION) != 0;
+
+    private static final String[] sGmsSpoofingTargets = SystemProperties.get(
+            PROP_NAME_SPOOFING_TARGETS, PROCESS_GMS_UNSTABLE)
+            .split(",");
 
     private static volatile JSONObject sCertifiedProps;
     private static volatile String sStockFp, sNetflixModel;
@@ -104,7 +113,8 @@ public class PropImitationHooks {
 
         sProcessName = processName;
         sIsPixelDevice = Build.MANUFACTURER.equals("Google") && Build.MODEL.contains("Pixel");
-        sIsGms = packageName.equals(PACKAGE_GMS) && processName.equals(PROCESS_GMS_UNSTABLE);
+        sIsGms = ArrayUtils.contains(sGmsSpoofingTargets, packageName) ||
+                ArrayUtils.contains(sGmsSpoofingTargets, processName);
         sIsFinsky = packageName.equals(PACKAGE_FINSKY);
         sIsPhotos = packageName.equals(PACKAGE_GPHOTOS);
 
@@ -223,7 +233,6 @@ public class PropImitationHooks {
 
     public static void onEngineGetCertificateChain() {
         if (!sEnableKeyAttestationBlock) {
-            dlog("Key attestation blocking is disabled");
             return;
         }
 
@@ -247,6 +256,12 @@ public class PropImitationHooks {
             has = false;
         }
         return has;
+    }
+
+    public static String getKeyboxSpoofingTargets() {
+        if (sContext == null) return null;
+        return Settings.Secure.getString(sContext.getContentResolver(),
+                Settings.Secure.KEYBOX_TARGET_PACKAGES);
     }
 
     public static void dlog(String msg) {

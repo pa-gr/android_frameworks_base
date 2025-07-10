@@ -61,4 +61,12 @@ interface IKeyboxProvider {
      * @hide
      */
     String[] getRsaCertificateChain();
+
+    /**
+     * Retrieves the list of packages where this keybox must be used.
+     *
+     * @return an array of Strings representing the list of package names
+     * @hide
+     */
+    String[] getSpoofingTargets();
 }

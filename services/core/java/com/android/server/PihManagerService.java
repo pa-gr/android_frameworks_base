@@ -7,7 +7,9 @@ package com.android.server;
 
 import static android.os.Process.SYSTEM_UID;
 import static com.android.internal.util.aospa.PropImitationHooks.PACKAGE_GMS;
+import static com.android.internal.util.aospa.PropImitationHooks.PACKAGE_FINSKY;
 import static com.android.internal.util.aospa.PropImitationHooks.PROCESS_GMS_UNSTABLE;
+import static com.android.internal.util.aospa.PropImitationHooks.PROP_NAME_SPOOFING_TARGETS;
 
 import android.app.ActivityManager;
 import android.app.ActivityTaskManager;
@@ -17,6 +19,7 @@ import android.content.Context;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Slog;
@@ -104,7 +107,7 @@ public class PihManagerService extends SystemService {
                         if (is != mGmsIsAddingAccount) {
                             dlog("mGmsIsAddingAccount: " + mGmsIsAddingAccount + " => " + is);
                             mGmsIsAddingAccount = is;
-                            restartGms();
+                            restartProcesses(PROCESS_GMS_UNSTABLE);
                         }
                     }
                 });
@@ -159,18 +162,29 @@ public class PihManagerService extends SystemService {
                 .anyMatch(a -> a.getComponentName().equals(GMS_ADD_ACCOUNT_ACTIVITY));
     }
 
-    private void restartGms() {
-        final int gmsUid = getGmsUid();
-        if (gmsUid == -1) {
-            Slog.e(TAG, "Cannot restart gms without uid!");
-            return;
-        }
+    private void restartSpoofingTargets() {
+        String[] targets = SystemProperties.get(PROP_NAME_SPOOFING_TARGETS, "").split(",");
+        dlog("restartSpoofingTargets: " + Arrays.toString(targets));
+        Arrays.stream(targets).forEach(this::restartProcesses);
+    }
 
+    private void restartProcesses(String match) {
+        if (TextUtils.isEmpty(match)) return;
         try {
-            ActivityManager.getService().killApplicationProcess(PROCESS_GMS_UNSTABLE, gmsUid);
-            dlog("restartGms success");
+            var activityManager = ActivityManager.getService();
+            activityManager.getRunningAppProcesses()
+                .stream()
+                .filter(p -> p.processName.contains(match))
+                .forEach(p -> {
+                    try {
+                        dlog("killing process: " + p.processName);
+                        activityManager.killApplicationProcess(p.processName, p.uid);
+                    } catch (RemoteException e) {
+                        Slog.e(TAG, "Failed to kill process: " + p.processName, e);
+                    }
+                });
         } catch (RemoteException e) {
-            Slog.e(TAG, "restartGms failed", e);
+            Slog.e(TAG, "restartProcesses failed: ", e);
         }
     }
 
@@ -223,7 +237,7 @@ public class PihManagerService extends SystemService {
 
                 dlog("certified props set: " + props);
                 mCertifiedProps = props;
-                restartGms();
+                restartSpoofingTargets();
             }
         }
 
@@ -232,7 +246,7 @@ public class PihManagerService extends SystemService {
             dlog("resetting certified props");
             synchronized (mLock) {
                 loadCertifiedProps();
-                restartGms();
+                restartSpoofingTargets();
             }
         }
 
@@ -260,7 +274,8 @@ public class PihManagerService extends SystemService {
 
             synchronized (mLock) {
                 mKeyboxProvider = provider;
-                restartGms();
+                // Restarting gms is unnecessary here since keybox is fetched on each attestation
+                // restartGms();
             }
         }
 
@@ -274,7 +289,7 @@ public class PihManagerService extends SystemService {
             dlog("resetting keybox provider");
             synchronized (mLock) {
                 mKeyboxProvider = new DefaultKeyboxProvider(getContext());
-                restartGms();
+                // restartGms();
             }
         }
     };
@@ -335,6 +350,11 @@ public class PihManagerService extends SystemService {
                     keyboxData.get(prefix + ".CERT_2"),
                     keyboxData.get(prefix + ".CERT_3")
             };
+        }
+
+        @Override
+        public String[] getSpoofingTargets() {
+            return new String[]{PACKAGE_GMS, PACKAGE_FINSKY};
         }
     }
 
