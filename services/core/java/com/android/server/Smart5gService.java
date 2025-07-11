@@ -237,7 +237,7 @@ public class Smart5gService extends SystemService {
         for (int subId : mActiveSubIds) {
             final TelephonyManager tm = mTelephonyManager.createForSubscriptionId(subId);
             final long supportedNrBitmask = getSupportedNrBitmask(tm, subId);
-            if (supportedNrBitmask == 0) return;
+            if (supportedNrBitmask == 0) continue;
             long allowedNetworkTypes = tm.getAllowedNetworkTypesForReason(
                     ALLOWED_NETWORK_TYPES_REASON_POWER);
             final boolean is5gAllowed = (allowedNetworkTypes & supportedNrBitmask) != 0;
@@ -249,7 +249,7 @@ public class Smart5gService extends SystemService {
             } else if (!shouldDisable && !is5gAllowed) {
                 allowedNetworkTypes |= supportedNrBitmask;
             } else {
-                return;
+                continue;
             }
             tm.setAllowedNetworkTypesForReason(ALLOWED_NETWORK_TYPES_REASON_POWER,
                     allowedNetworkTypes);
