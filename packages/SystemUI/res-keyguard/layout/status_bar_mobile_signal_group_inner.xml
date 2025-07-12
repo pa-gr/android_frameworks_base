@@ -28,9 +28,14 @@
         android:gravity="center_vertical"
         android:orientation="horizontal" >
 
+        <Space
+            android:id="@+id/mobile_type_space"
+            android:layout_height="match_parent"
+            android:layout_width="2sp"
+            android:visibility="gone"
+            />
         <include
             layout="@layout/status_bar_network_speed"
-            android:layout_marginStart="2.5dp"
             android:visibility="gone"/>
         <ImageView
             android:id="@+id/mobile_volte"
@@ -64,8 +69,6 @@
             android:id="@+id/mobile_type_container"
             android:layout_height="@dimen/status_bar_mobile_container_height"
             android:layout_width="wrap_content"
-            android:layout_marginStart="2.5sp"
-            android:layout_marginEnd="1sp"
             android:visibility="gone"
             >
             <ImageView

@@ -36,7 +36,7 @@ object NetworkSpeedViewBinder {
 
             // Use a reasonable fixed width to prevent statusbar items shifting on each refresh.
             updateLayoutParams<LinearLayout.LayoutParams> {
-                width = speedTextView.paint.measureText("00.00").roundToInt()
+                width = speedTextView.paint.measureText("0000").roundToInt()
             }
 
             repeatWhenAttached {

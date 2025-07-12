@@ -24,12 +24,16 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:gravity="center_vertical"
-        android:layout_marginStart="2.5sp"
     >
         <include
             layout="@layout/status_bar_network_speed"
-            android:layout_marginEnd="3dp"
             android:visibility="gone"/>
+        
+        <View
+            android:id="@+id/network_speed_spacer"
+            android:layout_width="2dp"
+            android:layout_height="4dp"
+            android:visibility="gone" />
 
         <ImageView
             android:id="@+id/vowifi"
